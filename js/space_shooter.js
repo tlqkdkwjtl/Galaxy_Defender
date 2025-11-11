@@ -2,6 +2,63 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// ▶ 오디오 컨텍스트 초기화
+let audioContext;
+try {
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+} catch (e) {
+  console.log("Web Audio API를 지원하지 않는 브라우저입니다.");
+}
+
+// ▶ 사운드 효과 함수들
+function playSound(frequency, duration, type = 'sine', volume = 0.3) {
+  if (!audioContext) return;
+  
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  oscillator.frequency.value = frequency;
+  oscillator.type = type;
+  
+  gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+  
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + duration);
+}
+
+// ▶ 총알 발사 소리
+function playShootSound() {
+  playSound(800, 0.1, 'square', 0.2);
+}
+
+// ▶ 적 처치 소리 (폭발)
+function playExplosionSound() {
+  playSound(200, 0.2, 'sawtooth', 0.3);
+  setTimeout(() => playSound(150, 0.15, 'sawtooth', 0.2), 50);
+}
+
+// ▶ 아이템 획득 소리
+function playItemSound() {
+  playSound(600, 0.15, 'sine', 0.25);
+  setTimeout(() => playSound(800, 0.1, 'sine', 0.2), 50);
+}
+
+// ▶ 피격 소리
+function playHitSound() {
+  playSound(300, 0.2, 'square', 0.3);
+}
+
+// ▶ 게임 오버 소리
+function playGameOverSound() {
+  playSound(200, 0.3, 'sawtooth', 0.4);
+  setTimeout(() => playSound(150, 0.3, 'sawtooth', 0.3), 100);
+  setTimeout(() => playSound(100, 0.3, 'sawtooth', 0.3), 200);
+}
+
 // ▶ 전투기 이미지 로드
 const playerImage = new Image();
 playerImage.src = "images/fighter.png"; // 플레이어 전투기 이미지
@@ -168,6 +225,9 @@ function shoot() {
     speed: 7
   });
   
+  // 발사 소리
+  playShootSound();
+  
   shotsFired++;
   
   // 5번 발사하면 쿨타임 시작
@@ -283,6 +343,8 @@ function updateItems() {
       shield += 5;
       if (shield > 100) shield = 100;
       item.collected = true;
+      // 아이템 획득 소리
+      playItemSound();
     }
   });
   items = items.filter(i => i.y < canvas.height && !i.collected);
@@ -524,12 +586,15 @@ function update() {
       if (shield < 0) shield = 0;
       spawnEffect(e.x + e.width / 2, e.y + e.height / 2);
       e.hit = true;  // 충돌 표시
+      // 피격 소리
+      playHitSound();
       
       // 실드가 10% 이하가 되면 게임 종료
       if (shield <= 10) {
         gameState = "gameOver";
         gameStats.deathCount++;
         gameStats.totalScore += score;
+        playGameOverSound();
         alert("더이상의 전투는 무리다 후퇴한다\nScore: " + score);
         resetToLobby();
         return;
@@ -548,6 +613,8 @@ function update() {
         gameStats.enemiesKilled++;
         bullets = bullets.filter(bullet => bullet !== b);
         spawnEffect(e.x + e.width / 2, e.y + e.height / 2);
+        // 적 처치 소리
+        playExplosionSound();
 
         if (Math.random() < 0.3) {  // 3️⃣ 아이템
           spawnItem(e.x + e.width / 2 - 6, e.y);
@@ -568,12 +635,15 @@ function update() {
       if (shield < 0) shield = 0;
       b.hit = true;  // 충돌 표시
       spawnEffect(player.x + player.width / 2, player.y + player.height / 2);
+      // 피격 소리
+      playHitSound();
       
       // 실드가 10% 이하가 되면 게임 종료
       if (shield <= 10) {
         gameState = "gameOver";
         gameStats.deathCount++;
         gameStats.totalScore += score;
+        playGameOverSound();
         alert("더이상의 전투는 무리다 후퇴한다\nScore: " + score);
         resetToLobby();
         return;
